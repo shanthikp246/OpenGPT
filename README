@@ -1,0 +1,56 @@
+This skeleton code uses the following frameworks
+- fastapi for web backend
+- celery/rabbitmq for task queue management
+- prometheus for metrics collection
+- grafana for metric dashboard
+- pushgateway for celery workers to publish metrics which are later scraped by prometheus
+- docker/k8s for deployment and autoscaling
+
+0: Code
+- project/main.py defines the two api endpoints (POST /tasks and GET /tasks/{task_id})
+- project/worker.py simulates a long running background task by doing a matrix multiplication of two matrices A & B that
+  are provided as payload during the POST to /tasks
+- test/load_test.py repeatedly calls the endpoints with random matrices
+
+
+1. minikube start
+
+2. eval $(minikube -p minikube docker-env)
+- ** This is important. **
+- All docker commands will use the minikube docker instance instead of host instance after this command.
+- If you build the docker images below before doing this command the images will end up in the host registry
+- instead of minikube image repository. The deployment will fail saying it can't find the images
+
+3. docker build -t celery:latest -f Dockerfile.celery .
+
+4. docker build -t fastapi:latest -f Dockerfile.fastapi .
+
+5. bringup pods
+- kubectl apply -f k8s/deployment-rabbitmq.yaml
+- kubectl apply -f k8s/deployment-pushgateway.yaml
+
+- kubectl apply -f k8s/deployment-fastapi.yaml
+- kubectl apply -f k8s/service-fastapi.yaml
+
+- kubectl apply -f k8s/deployment-celery.yaml
+- kubectl apply -f k8s/service-celery.yaml
+
+- kubectl apply -f k8s/hpa-celery.yaml
+- kubectl apply -f k8s/hpa-fastapi.yaml
+
+6. create tunnel to minikube
+- minikube tunnel
+
+7. You can then access the fastapi endpoints at http://127.0.0.1:8080
+
+8. Some helpful debug commands
+- kubectl get pods
+- kubect get svc
+- kubectl get services
+- kubectl get deployments
+- kubectl get hpa 
+- kubectl patch svc pushgateway-service -p '{"spec": {"type": "LoadBalancer"}}'
+- kubectl replace -f k8s/deployment-fastapi.yaml if you change any of k8s config
+- kubectl logs <pod-name> # get pods names from kubectl get pods
+- kubectl describe pod <pod-name>
+- kubectl delete all --all --namespace default
