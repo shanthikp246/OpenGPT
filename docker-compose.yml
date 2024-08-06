@@ -1,0 +1,33 @@
+services:
+  web:
+    build: 
+      context: .
+      dockerfile: Dockerfile.fastapi
+    container_name: fastapi
+    ports:
+      - "8000:8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --reload
+    volumes:
+      - ./data:/data  # Mount the host directory to the container
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - PYTHONPATH="${PYTHONPATH}:/code/app"
+    depends_on:
+      - redis
+  worker:
+    build: 
+      context: .
+      dockerfile: Dockerfile.celery
+    container_name: celery
+    command: celery -A app.tasks.celery worker --loglevel=info
+    volumes:
+      - ./data:/data  # Mount the host directory to the container
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - PYTHONPATH="${PYTHONPATH}:/code/app"
+    depends_on:
+      - redis
+  redis:
+    image: "redis:alpine"
+
+  
