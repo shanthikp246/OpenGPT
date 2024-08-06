@@ -1,59 +1,33 @@
 services:
   web:
     build: 
-      context: ./project
+      context: .
       dockerfile: Dockerfile.fastapi
     container_name: fastapi
     ports:
       - "8000:8000"
-    command: uvicorn main:app --host 0.0.0.0 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --reload
     volumes:
-      - ./project:/app
+      - ./data:/data  # Mount the host directory to the container
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - PYTHONPATH="${PYTHONPATH}:/code/app"
     depends_on:
-      - rabbitmq
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: rabbitmq=service
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-  
+      - redis
   worker:
     build: 
-      context: ./project
+      context: .
       dockerfile: Dockerfile.celery
     container_name: celery
-    command: celery -A worker.celery_app worker --loglevel=info
+    command: celery -A app.tasks.celery worker --loglevel=info
     volumes:
-      - ./project:/app
+      - ./data:/data  # Mount the host directory to the container
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - PYTHONPATH="${PYTHONPATH}:/code/app"
     depends_on:
-      - rabbitmq
-      - web
-
-  pushgateway:
-    image: prom/pushgateway
-    ports:
-      - "9091:9091"
-    depends_on:
-      - web
-      - worker
-      - rabbitmq
-
-  prometheus:
-    image: prom/prometheus
-    volumes:
-      - ./project/prometheus.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - 9090:9090
-    depends_on:
-      - pushgateway
-
-  grafana:
-    image: grafana/grafana
-    ports:
-      - 3000:3000
-    depends_on:
-      - prometheus
+      - redis
+  redis:
+    image: "redis:alpine"
 
   
